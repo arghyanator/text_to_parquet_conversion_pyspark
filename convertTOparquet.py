@@ -5,35 +5,35 @@ from pyspark.sql.types import *
 '''
 Convert Pipe-separated Text Data file to Parquet format
 Author: Arghya Banerjee
-Schema is for 15 string column table
-Date Modified: Jul-8-2019
+Schema is for table 
+Date Modified: xxx-xx-xxxx
+Reference:
+    1. https://medium.com/@bufan.zeng/use-parquet-for-big-data-storage-3b6292598653
+    2. https://www.analyticsvidhya.com/blog/2016/10/spark-dataframe-and-operations/
 '''
 
 if __name__ == "__main__":
     sc = SparkContext(appName="CSV2Parquet")
     sqlContext = SQLContext(sc)
 
-    #Convert line into touple of 15 
-    def lineTuple(line):
-        values = line.split('|')
-        return (
-            values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8], values[9], values[10],
-            values[11], values[12], values[13], values[14], values[15])
-    
-    #Load the data into an RDD of touples using map above
-    rdd = sc.textFile("/data/export_partial.dat").map(lineTuple)
+    #Load the data into an RDD using delimiter '|'
+    rdd = sc.textFile("/data/export_table.dat").map(lambda line: line.split('|'))
     ## Print the loaded data if you want to
     '''
     print "Printing original data\n=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n"
     print rdd.take(5)
     print "\nPRINTED original data...Bye\n=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n"
     '''
-    #Create rdd into Data Frame with column names
-    df = sqlContext.createDataFrame(rdd, ['value1', 'value2', 'value3', 'value4', 'value5', 
-        'value6', 'value7', 'value8', 'value9', 'value10', 'value11', 'value12', 
-        'value13', 'value14', 'value15'])
-    ## Print Data Frame if you want to
-    #df.show(100)
-    #df.coalesce(1).write.format("parquet").mode("append").save("/data/parquet/export.parquet")
-    ##Write DataFrame to Parquet file(s) under /data/parquet/export.parquet folder - creates folder
-    df.write.parquet("/data/parquet/export.parquet")
+    #Create rdd into Data Frame with column names including the first and last empty columns before the first '|' and last '|'
+    df = sqlContext.createDataFrame(rdd, ['EMPTYBEGIN', 'date', 'col1', 'col2', 'col3', 'EMPTYEND'])
+    ## Print Data Frame if you want to with the first and last empty columns
+    #df.show(10)
+
+    ## OR Selectively pring only non-empty columns
+    #df.select(['date', 'col1', 'col2', 'col3']).show(10)
+
+    ## Write into single parquet file NOT A GOOD IDEA
+    #df.coalesce(1).write.format("parquet").mode("append").save("/data/parquet/export_table.parquet")
+    
+    ##Write DataFrame to Parquet file WITH PARTITIONS which will create sublfoders based on values in date
+    df.select(['date', 'col1', 'col2', 'col3']).write.partitionBy('date').parquet("/data/parquet/export_table.parquet")
